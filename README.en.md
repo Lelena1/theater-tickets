@@ -4,7 +4,7 @@
 
 A Claude-based AI agent that checks Moscow theatre listings every morning and finds affordable tickets (up to 5,000 RUB) for 14 selected productions. It remembers what it found on previous runs, so each report highlights what changed: sales opened, new dates appeared, tickets got cheaper or are running out.
 
-The project is built entirely with prompt engineering: there is no code. All of the agent's logic lives in [`prompt.md`](prompt.md), and it runs as a scheduled task in Claude Desktop.
+The project is built almost entirely with prompt engineering: all of the agent's logic lives in [`prompt.md`](prompt.md), and it runs as a scheduled task in Claude Desktop. The only code is a small script that sends Telegram notifications.
 
 ## Example output
 
@@ -25,12 +25,14 @@ flowchart LR
     T --> A
     A --> M
     A --> R["data/reports/<br/>daily report"]
+    A --> N["notify.py<br/>Telegram digest"]
 ```
 
 1. A scheduled task in Claude Desktop starts a fresh Claude session every day with the instructions from `prompt.md`.
 2. The agent reads `data/state.json`: what was known last time and which links and sources it has already found.
 3. It decides which productions to check today (see "Making it faster") and checks them on theatre websites and official ticket sellers: Yandex Afisha, Ticketland, tickets.mos.ru and others.
 4. It compares the results with the previous state, saves the new state and writes the report.
+5. It sends a short digest to Telegram via [`notify.py`](notify.py): what's new and up to 5 best options with links. The digest arrives after every run, even when nothing changed.
 
 ## Design decisions and constraints
 
@@ -60,7 +62,12 @@ A run still takes a while, usually 20 minutes to an hour, because many box offic
 1. Install [Claude Desktop](https://claude.ai/download) and clone this repository.
 2. In `prompt.md`, edit the list of productions, the budget and the paths to the `data/` folder.
 3. Open the project folder in the Code tab and ask Claude to create a Scheduled task with the text of `prompt.md` and the run time you want.
-4. Click "Run now" and allow web search and the built-in browser ("Always allow") so future runs don't stop on permission prompts.
+4. Set up the Telegram bot:
+   - create a bot with [@BotFather](https://t.me/BotFather) using `/newbot`;
+   - copy `.env.example` to `.env` and put the token in `TELEGRAM_BOT_TOKEN`;
+   - open your bot in Telegram and press "Start";
+   - run `python notify.py setup` (it saves your chat id to `.env`), then `python notify.py test`.
+5. Click "Run now" and allow web search, the built-in browser and running `python notify.py` ("Always allow") so future runs don't stop on permission prompts.
 
 Scheduled tasks run while Claude Desktop is open. If the app was closed, the check runs the next time it opens.
 
@@ -68,6 +75,8 @@ Scheduled tasks run while Claude Desktop is open. If the app was closed, the che
 
 ```
 ├── prompt.md          agent instructions (in Russian)
+├── notify.py          sends the digest to Telegram (Python standard library only)
+├── .env.example       Telegram settings template (.env is not in the repo)
 ├── examples/          a real report
 ├── data/              (not in the repo) state.json and daily reports
 ├── README.md          Russian description
@@ -77,7 +86,7 @@ Scheduled tasks run while Claude Desktop is open. If the app was closed, the che
 
 ## Ideas for the future
 
-- Telegram notifications when sales open or cheap tickets appear.
+- An instant alert the moment sales open, not just in the morning digest.
 - Move the list of productions and the budget into a separate config file instead of the prompt text.
 
 ## License
